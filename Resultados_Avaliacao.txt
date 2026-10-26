@@ -1,11 +1,62 @@
-=== RESULTADOS DA AVALIAÇÃO DE MODELOS E PROJEÇÕES ===
+======================================================================
+  RESULTADOS DA AVALIAÇÃO DE MODELOS E PROJEÇÕES — CARUARU/PE
+======================================================================
 
-    Modelo  RMSE (m³)       R²
-   XGBoost 283.036461 0.955747
- Linear-MV 423.043566 0.901138
-      LSTM 573.126374 0.818548
-Ridge (L2) 585.819280 0.810422
+--- BENCHMARK DE MODELOS (período de teste: 2018–2022) ---
+  Vol_produzido em 1.000 m³/ano (unidade SNIS). RMSE na mesma unidade.
 
-=== PROJEÇÕES DE DEMANDA PARA RECIFE ===
-Ano 2030 (Linear): 34252.96 m³ [IC95%: 26257.63 - 42248.30]
-Ano 2050 (Linear): 38115.17 m³ [IC95%: 30119.83 - 46110.50]
+           Modelo  RMSE (×1.000 m³)  MAPE (%)         R²
+    Random Forest       2295.481991  7.518935   0.695000
+       Ridge (L2)       4284.722674 17.209777  -0.062667
+Gradient Boosting       5417.714236 17.146553  -0.698963
+          XGBoost       7220.766434 23.994826  -2.017993
+        Linear-MV      15346.358828 58.240318 -12.632087
+
+======================================================================
+  PROJEÇÕES DE DEMANDA DE ÁGUA — CARUARU
+  UNIDADE: ×1.000 m³/ano (SNIS) | Para m³ total, multiplique por 1.000
+======================================================================
+
+Ano 2030 — Modelo Linear:
+  Volume projetado :  27,561.90 × 1.000 m³/ano
+                   =     27,561,897 m³/ano
+  IC 95%           : [18,967,246  —  36,156,548] m³/ano
+  Modelo XGBoost   :     22,522,512 m³/ano
+
+Ano 2040 — Modelo Linear:
+  Volume projetado :  30,095.80 × 1.000 m³/ano
+                   =     30,095,798 m³/ano
+  IC 95%           : [21,501,147  —  38,690,449] m³/ano
+  Modelo XGBoost   :     19,885,562 m³/ano
+
+Ano 2050 — Modelo Linear:
+  Volume projetado :  32,629.70 × 1.000 m³/ano
+                   =     32,629,698 m³/ano
+  IC 95%           : [24,035,047  —  41,224,349] m³/ano
+  Modelo XGBoost   :     18,897,273 m³/ano
+
+======================================================================
+  PROJEÇÕES DEMOGRÁFICAS — CARUARU
+======================================================================
+
+  Variável                                  2030            2040            2050
+  ---------------------------------------------------------------------------
+  População Urbana (hab.)                391,040         450,552         510,064
+  População Rural (hab.)                  38,580          38,553          38,526
+  Área Urbanizada (m²)                88,125,325     105,769,475     123,413,626
+
+======================================================================
+  VERIFICAÇÃO DE SANIDADE — CONSUMO PER CAPITA
+======================================================================
+
+  Ano    Vol (m³/ano)         Pop Total          L/hab/dia    Status
+  ----------------------------------------------------------------------
+  2030   27,561,897           429,620            175.8        OK (acima de 50 L/hab/dia)
+  2040   30,095,798           489,105            168.6        OK (acima de 50 L/hab/dia)
+  2050   32,629,698           548,591            163.0        OK (acima de 50 L/hab/dia)
+
+  Nota sobre unidade:
+  O SNIS reporta Vol_produzido em 1.000 m³/ano.
+  Referência real 2022: 29.720 × 1.000 = 29.720.750 m³/ano.
+  Fonte de validação: aguaesaneamento.org.br (~19.184.400 m³/ano
+  referente a período anterior ao crescimento pós-2020).

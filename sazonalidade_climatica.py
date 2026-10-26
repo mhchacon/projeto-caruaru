@@ -408,13 +408,13 @@ print("""
 print(f"""  Para a desagregacao da serie historica anual de demanda de agua em
   escala mensal, adotou-se um metodo de ponderacao sazonal fundamentado
   em dados climaticos empiricos coletados da estacao meteorologica de
-  Recife-PE (Estacao {ESTACAO_INMET_COD}, OMM 82900), conforme disponibilizado
+  Caruaru-PE (Estacao {ESTACAO_INMET_COD}), conforme disponibilizado
   pelo Instituto Nacional de Meteorologia (INMET). A metodologia baseia-se
   no reconhecido comportamento do consumo de agua urbana em funcao de dois
   fatores climaticos determinantes: a temperatura do ar e a precipitacao
   pluviometrica (XENOCHRISTOU et al., 2020; COMINOLA et al., 2019; DONKOR et al., 2014).
 
-  A analise da climatologia historica de Recife revela uma sazonalidade
+  A analise da climatologia historica de Caruaru revela uma sazonalidade
   pronunciada. O periodo de verao austral (dezembro-fevereiro) apresenta
   temperatura maxima media de {t_verao:.1f} graus C e precipitacao media de
   {p_verao:.1f} mm/mes, enquanto o periodo de inverno austral (junho-agosto)
@@ -443,7 +443,7 @@ print(f"""  Para a desagregacao da serie historica anual de demanda de agua em
   Os pesos resultantes indicam que Janeiro ({peso_jan:.1f}%) e Fevereiro
   ({peso_fev:.1f}%) concentram a maior demanda relativa, enquanto Junho
   ({peso_jun:.1f}%) e Julho ({peso_jul:.1f}%) apresentam os menores pesos,
-  consistentemente com o regime climatico de Recife.
+  consistentemente com o regime climatico do Agreste Pernambucano (Caruaru).
 
   REFERENCIAS:
   * XENOCHRISTOU, M. et al. Using Smart Demand-Metering Data and Customer Characteristics to Investigate Influence of Weather on Water Consumption in the UK. J. Water Resour. Plann. Manage., v. 146, n. 2, 2020.
@@ -456,67 +456,101 @@ print(f"""  Para a desagregacao da serie historica anual de demanda de agua em
 """)
 
 # ==============================================================================
-# SEÇÃO 7 - DESAGREGAÇÃO DA SÉRIE HISTÓRICA ANUAL
+# SEÇÃO 7 - DESAGREGAÇÃO DA SÉRIE HISTÓRICA ANUAL E PROJEÇÕES
 # ==============================================================================
 print("=" * 70)
-print("  SECAO 6: DESAGREGACAO MENSAL DA SERIE HISTORICA (Caruaru_Dataset.csv)")
+print("  SECAO 6: DESAGREGACAO MENSAL (HISTORICO E PROJECOES)")
 print("=" * 70)
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
-caminho_dataset = os.path.join(script_dir, "Caruaru_Dataset.csv")
+candidatos_dataset = [
+    os.path.join(script_dir, "database", "Caruaru_Dataset_Atualizado.csv"),
+    os.path.join(script_dir, "Caruaru_Dataset_Atualizado.csv"),
+]
+caminho_dataset = next((p for p in candidatos_dataset if os.path.exists(p)), None)
 
 try:
+    if caminho_dataset is None:
+        raise FileNotFoundError("Caruaru_Dataset_Atualizado.csv nao encontrado.")
+
     df_anual = pd.read_csv(caminho_dataset)
     df_anual = df_anual.dropna(subset=["Ano", "Vol_produzido"]
                                if "Vol_produzido" in df_anual.columns
                                else ["Ano"])
 
-    # Identifica coluna de volume
     col_volume = next(
         (c for c in df_anual.columns if "vol" in c.lower() and "produz" in c.lower()),
         next((c for c in df_anual.columns if "vol" in c.lower()), None)
     )
 
     if col_volume is None:
-        print("  AVISO: Coluna de volume nao encontrada. Listando colunas disponíveis:")
-        for c in df_anual.columns:
-            print(f"    - {c}")
+        print("  AVISO: Coluna de volume nao encontrada.")
     else:
         df_anual["Ano"] = df_anual["Ano"].astype(int)
         df_anual = df_anual.sort_values("Ano").reset_index(drop=True)
-        print(f"\n  Dataset: {len(df_anual)} anos ({df_anual['Ano'].min()}-{df_anual['Ano'].max()})")
-        print(f"  Coluna : '{col_volume}'\n")
+        print(f"\n  Dataset Historico: {len(df_anual)} anos ({df_anual['Ano'].min()}-{df_anual['Ano'].max()})")
+        print(f"  Coluna Volume: '{col_volume}' (em 1.000 m³/ano)\n")
 
         registros_mensais = []
+        # 1. Desagrega série histórica real
         for _, row_ano in df_anual.iterrows():
-            volume_anual = row_ano[col_volume]
-            if pd.isna(volume_anual):
+            vol_mil = row_ano[col_volume]
+            if pd.isna(vol_mil):
                 continue
+            vol_m3_ano = vol_mil * 1000.0
             for _, row_mes in dados_climaticos.iterrows():
+                peso = row_mes["peso_mensal"]
                 registros_mensais.append({
-                    "Ano":           int(row_ano["Ano"]),
-                    "Mes":           int(row_mes["mes"]),
-                    "Nome_Mes":      row_mes["nome_mes"],
-                    "Peso_Mensal":   round(row_mes["peso_mensal"], 6),
-                    "Volume_Anual":  round(volume_anual, 2),
-                    "Volume_Mensal": round(volume_anual * row_mes["peso_mensal"], 2),
+                    "Tipo":               "Historico",
+                    "Ano":                int(row_ano["Ano"]),
+                    "Mes":                int(row_mes["mes"]),
+                    "Nome_Mes":           row_mes["nome_mes"],
+                    "Peso_Mensal":        round(peso, 6),
+                    "Vol_Anual_1000m3":   round(vol_mil, 2),
+                    "Vol_Mensal_1000m3":  round(vol_mil * peso, 2),
+                    "Vol_Anual_m3":       round(vol_m3_ano, 0),
+                    "Vol_Mensal_m3":      round(vol_m3_ano * peso, 0),
                 })
+
+        # 2. Desagrega projeções futuras (2030, 2040, 2050) se existirem
+        caminho_proj = os.path.join(script_dir, "Projeções_Demanda_Anual.csv")
+        if os.path.exists(caminho_proj):
+            df_proj = pd.read_csv(caminho_proj)
+            anos_futuros = [2030, 2040, 2050]
+            col_futura = "Previsao_Linear_Anual" if "Previsao_Linear_Anual" in df_proj.columns else None
+            if col_futura:
+                print(f"  Integrando projecoes futuras ({anos_futuros}) na desagregacao mensal...")
+                for ano_f in anos_futuros:
+                    df_sub = df_proj[df_proj["Ano"] == ano_f]
+                    if not df_sub.empty:
+                        vol_f_mil = df_sub.iloc[0][col_futura]
+                        vol_f_m3  = vol_f_mil * 1000.0
+                        for _, row_mes in dados_climaticos.iterrows():
+                            peso = row_mes["peso_mensal"]
+                            registros_mensais.append({
+                                "Tipo":               "Projecao_Linear",
+                                "Ano":                int(ano_f),
+                                "Mes":                int(row_mes["mes"]),
+                                "Nome_Mes":           row_mes["nome_mes"],
+                                "Peso_Mensal":        round(peso, 6),
+                                "Vol_Anual_1000m3":   round(vol_f_mil, 2),
+                                "Vol_Mensal_1000m3":  round(vol_f_mil * peso, 2),
+                                "Vol_Anual_m3":       round(vol_f_m3, 0),
+                                "Vol_Mensal_m3":      round(vol_f_m3 * peso, 0),
+                            })
 
         df_mensal = pd.DataFrame(registros_mensais)
         caminho_saida = os.path.join(script_dir, "Caruaru_Demanda_Mensal_Desagregada.csv")
         df_mensal.to_csv(caminho_saida, index=False, encoding="utf-8-sig")
-        print(f"  OK - Serie desagregada salva em: {caminho_saida}")
+        print(f"  OK - Serie mensal desagregada salva em: {caminho_saida}")
 
-        print(f"\n  {'Ano':>5} {'Mes':>4} {'Nome':>12} {'Peso':>9} {'Vol.Anual':>12} {'Vol.Mensal':>12}")
-        print("  " + "-" * 62)
-        for _, r in df_mensal.head(12).iterrows():
+        print(f"\n  {'Tipo':<12} {'Ano':>5} {'Mes':>4} {'Nome':>10} {'Peso':>8} {'Vol.Anual(m³)':>15} {'Vol.Mensal(m³)':>15}")
+        print("  " + "-" * 75)
+        for _, r in df_mensal.head(6).iterrows():
             print(
-                f"  {int(r['Ano']):>5} {int(r['Mes']):>4} {r['Nome_Mes']:>12} "
-                f"{r['Peso_Mensal']:>9.4%} {r['Volume_Anual']:>12.2f} {r['Volume_Mensal']:>12.2f}"
+                f"  {r['Tipo']:<12} {int(r['Ano']):>5} {int(r['Mes']):>4} {r['Nome_Mes']:>10} "
+                f"{r['Peso_Mensal']:>8.2%} {r['Vol_Anual_m3']:>15,.0f} {r['Vol_Mensal_m3']:>15,.0f}"
             )
-
-except FileNotFoundError:
-    print(f"  AVISO: '{caminho_dataset}' nao encontrado.")
 except Exception as e:
     print(f"  AVISO: Erro ao processar dataset: {e}")
 
@@ -530,7 +564,7 @@ print("=" * 70)
 try:
     fig, axes = plt.subplots(3, 1, figsize=(13, 14))
     fig.suptitle(
-        "Sazonalidade Climatica de Recife-PE e Pesos Mensais de Demanda Hidrica\n"
+        "Sazonalidade Climatica de Caruaru-PE e Pesos Mensais de Demanda Hidrica\n"
         f"Fonte: {fonte_dados[:80]}...",
         fontsize=11, fontweight="bold", y=0.99
     )
